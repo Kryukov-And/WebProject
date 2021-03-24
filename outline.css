@@ -137,7 +137,7 @@ main {
 
 .add_form {
     display: grid;
-    grid-template-columns: 1fr 40px;
+    grid-template-columns: 1fr 45px;
 }
 
 #submit_city {
@@ -150,6 +150,10 @@ main {
     background-position: 50% 50%;
     background-color: transparent;
     border: none;
+}
+
+#submit_city:active {
+    background-size: 50%;
 }
 
 #add_city {
@@ -205,6 +209,16 @@ main {
     background-position: 50% 50%;
     background-color: transparent;
     border: none;
+}
+
+.delete:active {
+    background-size: 50%;
+}
+
+button,
+button:active,
+button:focus {
+    outline: none;
 }
 
 .favorite ul{
@@ -298,7 +312,7 @@ main {
 
     .add_favorite .add_form {
         display: grid;
-        grid-template-columns: 1fr 50px;
+        grid-template-columns: 1fr 45px;
     }
 
     .favorites {
