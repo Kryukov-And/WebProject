@@ -1,85 +1,121 @@
-if (localStorage.getItem('globalId') == null)
-    localStorage.setItem('globalId', '0');
+const globalUrl = "http://localhost:3000";
 
 getLocation();
+start();
+async function start()
+{
+    let url = `${globalUrl}/favorites`;
 
-for (let i = 0; i < Number.parseInt(localStorage.getItem('globalId')); i++)
-    addNewCity(localStorage.getItem('id' + i.toString()), true, 'id' + i.toString());
+    try {
+        let response = await fetch(url);
+        let commits = await response.json();
 
-async function addNewCity(nameCity = undefined, load=false, id) {
-    if (nameCity === null)
-        return;
+        for (let i = 0; i < commits.length; i++)
+            loadCity(commits[i].name, commits[i]._id);
+    } catch (err) {
+        if (err === "401")
+            alert('Проблемы с ключом');
+        else
+        if (err === "404")
+            alert('Город не найден');
+        else
+        if (err === "429")
+            alert('Слишком много запросов');
+        else
+            alert('Произошла ошибка');
+    }
+}
 
-    let myKey = '37806c6a2292ccb85ae1a76932369592';
+async function loadCity(nameCity, id) {
+    createEmptyElement(nameCity, id);
+    let url = `${globalUrl}/weather/city?q=${nameCity}`;
+
+    try{
+        let response = await fetch(url);
+        let commits = await response.json();
+
+        let temp = ~~commits.main.temp;
+        let img = commits.weather[0].icon + '.png';
+        let wind = commits.wind.speed;
+        let cloud = commits.weather[0].description;
+        let press = commits.main.pressure;
+        let hum = commits.main.humidity;
+        let x = commits.coord.lat.toFixed(1);
+        let y = commits.coord.lon.toFixed(1);
+
+        refactorElement(nameCity, temp, img, wind, cloud, press, hum, x, y, id);
+    } catch(err) {
+        delFast(id);
+        alert(`Произошла ошибка при загрузке города: ${nameCity}`);
+        console.error(err);
+    }
+}
+
+async function addNewCity(nameCity = undefined, id) {
     let input_city = document.getElementById('add_city');
 
-    if (nameCity === undefined){
-        nameCity = input_city.value;
-        input_city.value = '';
-    }
+    nameCity = input_city.value;
+    input_city.value = '';
 
     if (nameCity === "")
         return;
 
-    let url = `https://api.openweathermap.org/data/2.5/weather?q=${nameCity}&appid=${myKey}&units=metric&lang=ru`;
+    let url = `${globalUrl}/weather/city?q=${nameCity}`;
 
-    if (load)
-        createEmptyElement(nameCity, id);
-    else
-    {
-        id = Date.now().toString();
-        createEmptyElement(nameCity, id);
+    id = Date.now().toString();
+    createEmptyElement(nameCity, id);
+
+    try {
+        let response = await fetch(url);
+        let commits = await response.json();
+
+        if (commits.cod === "401" || commits.cod === "404" || commits.cod === "429")
+            throw commits.cod;
+
+        url = `${globalUrl}/favorites`;
+
+        let res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: nameCity
+            })
+        });
+
+        let com = await res.json();
+
+        document.getElementById(id).querySelector(".delete").setAttribute('onclick', "del('" + com._id + "')");
+        document.getElementById(id).setAttribute('id', com._id);
+
+        let temp = ~~commits.main.temp;
+        let img = commits.weather[0].icon + '.png';
+        let wind = commits.wind.speed;
+        let cloud = commits.weather[0].description;
+        let press = commits.main.pressure;
+        let hum = commits.main.humidity;
+        let x = commits.coord.lat.toFixed(1);
+        let y = commits.coord.lon.toFixed(1);
+
+        refactorElement(nameCity, temp, img, wind, cloud, press, hum, x, y, com._id);
+    } catch(err) {
+        if (err === "401")
+            alert('Проблемы с ключом');
+        else
+        if (err === "404")
+            alert('Город не найден');
+        else
+        if (err === "429")
+            alert('Слишком много запросов');
+        else
+            alert('Произошла ошибка');
+        delFast(id);
     }
-
-    let response = await fetch(url).catch(err => {
-        alert('Произошла ошибка при запросе')
-        del(id);
-    });
-
-    let commits = await response.json();
-
-    if (commits.cod === "401"){
-        alert('Проблемы с ключом');
-        del(id);
-        return;
-    }
-
-    if (commits.cod === "404"){
-        alert('Нет информации об этом городе');
-        del(id);
-        return;
-    }
-
-    if (commits.cod === "429"){
-        alert('Запросы в минуту превышают лимит бесплатного аккаунта');
-        del(id);
-        return;
-    }
-
-    if (!load){
-        let l = localStorage.getItem('globalId');
-        l = Number.parseInt(l);
-        localStorage.setItem('id' + l, nameCity);
-        localStorage.setItem('globalId', (l + 1).toString());
-        document.getElementById(id).setAttribute('id', 'id' + l);
-        id = 'id' + l;
-        document.getElementById(id).querySelector(".delete").setAttribute('onclick', "del('" + id + "')");
-    }
-
-    let temp = ~~commits.main.temp;
-    let img = commits.weather[0].icon + '.png';
-    let wind = commits.wind.speed;
-    let cloud = commits.weather[0].description;
-    let press = commits.main.pressure;
-    let hum = commits.main.humidity;
-    let x = commits.coord.lon.toFixed(1);
-    let y = commits.coord.lat.toFixed(1);
-
-    refactorElement(nameCity, temp, img, wind, cloud, press, hum, x, y, id);
 }
 
 
-function refactorElement(city, temperature, img, wind, cloud, pressure, humidity, y, x, id) {
+function refactorElement(city, temperature, img, wind, cloud, pressure, humidity, x, y, id) {
     let newFavorite = document.getElementById(id);
     newFavorite.querySelector('h3').textContent = city;
     newFavorite.querySelector('.temperature').textContent = temperature.toString()+'°C';
@@ -95,75 +131,67 @@ function refactorElement(city, temperature, img, wind, cloud, pressure, humidity
 function getLocation() {
     navigator.geolocation.getCurrentPosition(success, error);
     async function success(coords) {
-        let x = coords.coords.latitude;
-        let y = coords.coords.longitude;
+        let url = `${globalUrl}/weather/coordinates?lat=${coords.coords.latitude}&lon=${coords.coords.longitude}`;
 
-        let myKey = '37806c6a2292ccb85ae1a76932369592';
-        let url = `https://api.openweathermap.org/data/2.5/weather?lat=${x}&lon=${y}&appid=${myKey}&units=metric&lang=ru`;
+        try {
+            let response = await fetch(url);
+            let commits = await response.json();
 
-        let response = await fetch(url);
-        let commits = await response.json();
+            let nameCity = commits.name;
+            let temp = ~~commits.main.temp;
+            let img = commits.weather[0].icon + '.png';
+            let wind = commits.wind.speed;
+            let cloud = commits.weather[0].description;
+            let press = commits.main.pressure;
+            let hum = commits.main.humidity;
+            let x = commits.coord.lat.toFixed(1);
+            let y = commits.coord.lon.toFixed(1);
 
-        if (commits.cod === "401"){
-            alert('Проблемы с ключом');
-            return;
+            refactorTopCity(nameCity, temp, img, wind, cloud, press, hum, x, y);
+        } catch(err) {
+            if (err === "401")
+                alert('Проблемы с ключом');
+            else
+            if (err === "404")
+                alert('Город не найден');
+            else
+            if (err === "429")
+                alert('Слишком много запросов');
+            else
+                alert('Произошла ошибка');
         }
-
-        if (commits.cod === "404"){
-            alert('Нет информации об этом городе');
-
-            url = `https://api.openweathermap.org/data/2.5/weather?q=Москва&appid=${myKey}&units=metric&lang=ru`;
-            response = await fetch(url);
-            commits = await response.json();
-        }
-
-        if (commits.cod === "429"){
-            alert('Запросы в минуту превышают лимит бесплатного аккаунта');
-            return;
-        }
-
-
-        let nameCity = commits.name;
-        let temp = ~~commits.main.temp;
-        let img = commits.weather[0].icon + '.png';
-        let wind = commits.wind.speed;
-        let cloud = commits.weather[0].description;
-        let press = commits.main.pressure;
-        let hum = commits.main.humidity;
-        x = commits.coord.lon.toFixed(1);
-        y = commits.coord.lat.toFixed(1);
-
-        refactorTopCity(nameCity, temp, img, wind, cloud, press, hum, x, y);
     }
 
     async function error({ message }) {
-        let myKey = '37806c6a2292ccb85ae1a76932369592';
-        let url = `https://api.openweathermap.org/data/2.5/weather?q=Москва&appid=${myKey}&units=metric&lang=ru`;
-        let response = await fetch(url);
-        let commits = await response.json();
+        let url = `${globalUrl}/weather/city?q=Москва`;
 
-        if (commits.cod === "401"){
-            alert('Проблемы с ключом');
-            return;
+        try {
+            let response = await fetch(url);
+            let commits = await response.json();
+
+            let nameCity = commits.name;
+            let temp = ~~commits.main.temp;
+            let img = commits.weather[0].icon + '.png';
+            let wind = commits.wind.speed;
+            let cloud = commits.weather[0].description;
+            let press = commits.main.pressure;
+            let hum = commits.main.humidity;
+            let x = commits.coord.lat.toFixed(1);
+            let y = commits.coord.lon.toFixed(1);
+
+            refactorTopCity(nameCity, temp, img, wind, cloud, press, hum, x, y);
+        } catch(err) {
+            if (err === "401")
+                alert('Проблемы с ключом');
+            else
+            if (err === "404")
+                alert('Город не найден');
+            else
+            if (err === "429")
+                alert('Слишком много запросов');
+            else
+                alert('Произошла ошибка');
         }
-
-        if (commits.cod === "429"){
-            alert('Запросы в минуту превышают лимит бесплатного аккаунта');
-            return;
-        }
-
-        let nameCity = commits.name;
-        let temp = ~~commits.main.temp;
-        let img = commits.weather[0].icon + '.png';
-        let wind = commits.wind.speed;
-        let cloud = commits.weather[0].description;
-        let press = commits.main.pressure;
-        let hum = commits.main.humidity;
-        x = commits.coord.lon.toFixed(1);
-        y = commits.coord.lat.toFixed(1);
-
-        refactorTopCity(nameCity, temp, img, wind, cloud, press, hum, x, y);
-
         console.error(message);
     }
 }
@@ -173,7 +201,7 @@ function update() {
     getLocation();
 }
 
-function refactorTopCity(city, temperature, img, wind, cloud, pressure, humidity, y, x) {
+function refactorTopCity(city, temperature, img, wind, cloud, pressure, humidity, x, y) {
     let newFavorite = document.querySelector('.geo');
     newFavorite.querySelector('h2').textContent = city;
     newFavorite.querySelector('.temperature').textContent = temperature.toString()+'°C';
@@ -207,9 +235,36 @@ function createEmptyElement(city, id) {
     list.appendChild(newFavorite);
 }
 
-function del(idCity) {
+async function del(idCity) {
+    let url = `${globalUrl}/favorites`;
+
+    try {
+        await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id: idCity
+            })
+        });
+        document.getElementById(idCity).style.display = "none";
+    } catch (err) {
+        if (err === "401")
+            alert('Проблемы с ключом');
+        else
+        if (err === "404")
+            alert('Город не найден');
+        else
+        if (err === "429")
+            alert('Слишком много запросов');
+        else
+            alert('Произошла ошибка');
+    }
+}
+
+function delFast(idCity) {
     document.getElementById(idCity).style.display = "none";
-    localStorage.removeItem(idCity);
 }
 
 document.getElementById("myForm")
