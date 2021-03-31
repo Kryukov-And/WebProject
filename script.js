@@ -236,6 +236,8 @@ function createEmptyElement(city, id) {
 }
 
 async function del(idCity) {
+    document.getElementById(idCity).querySelector("button").disabled = true;
+
     let url = `${globalUrl}/favorites`;
 
     try {
@@ -250,6 +252,7 @@ async function del(idCity) {
         });
         document.getElementById(idCity).style.display = "none";
     } catch (err) {
+        document.getElementById(idCity).querySelector("button").disabled = false;
         if (err === "401")
             alert('Проблемы с ключом');
         else
